@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아란의 유선 리모컨</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #222; color: white; }
+        h2 { margin-bottom: 30px; }
+        
+        /* 버튼 스타일 */
+        button {
+            font-size: 1.2rem; padding: 15px 30px; margin: 10px;
+            border: none; border-radius: 50px; cursor: pointer;
+            width: 80%; max-width: 300px; transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); } /* 눌렀을 때 움찔 효과 */
+
+        #btn-connect { background: #ff9800; color: black; font-weight: bold; }
+        #btn-on { background: #4caf50; color: white; opacity: 0.5; pointer-events: none; } /* 처음엔 비활성 */
+        #btn-off { background: #f44336; color: white; opacity: 0.5; pointer-events: none; }
+        
+        /* 활성화 되었을 때 */
+        .active { opacity: 1 !important; pointer-events: auto !important; }
+        
+        #log { margin-top: 20px; color: #aaa; font-size: 0.9rem; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+    <h2>🔌 USB 유선 리모컨</h2>
+
+    <button id="btn-connect" onclick="connectSerial()">Step 1. 기기 연결하기</button>
+    
+    <hr style="margin: 30px 0; border-color: #444;">
+
+    <button id="btn-on" onclick="sendSignal('1')">💡 LED 켜기</button>
+    <br>
+    <button id="btn-off" onclick="sendSignal('0')">⚫ LED 끄기</button>
+
+    <div id="log">연결 대기 중...</div>
+
+    <script>
+        let port;
+        let writer;
+
+        // [핵심 1] 시리얼 포트 연결하기
+        async function connectSerial() {
+            // 브라우저가 지원하는지 확인
+            if (!("serial" in navigator)) {
+                alert("이 브라우저는 시리얼 통신을 지원하지 않습니다.\n(안드로이드 크롬, PC 크롬만 가능)");
+                return;
+            }
+
+            try {
+                // 1. 포트 선택창 띄우기
+                port = await navigator.serial.requestPort();
+                
+                // 2. 포트 열기 (속도 115200 필수!)
+                await port.open({ baudRate: 115200 });
+
+                // 3. 글쓰기 도구 준비
+                const textEncoder = new TextEncoderStream();
+                const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+                writer = textEncoder.writable.getWriter();
+
+                // 4. UI 변경 (버튼 활성화)
+                document.getElementById('log').innerText = "✅ 연결 성공! 버튼을 눌러보세요.";
+                document.getElementById('btn-connect').style.display = 'none'; // 연결버튼 숨김
+                document.getElementById('btn-on').classList.add('active');
+                document.getElementById('btn-off').classList.add('active');
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('log').innerText = "❌ 연결 실패: " + error;
+            }
+        }
+
+        // [핵심 2] 신호 보내기 (1 또는 0)
+        async function sendSignal(command) {
+            if (writer) {
+                try {
+                    await writer.write(command); // '1' 또는 '0' 전송
+                    document.getElementById('log').innerText = "📤 신호 전송: " + (command === '1' ? "ON" : "OFF");
+                } catch (error) {
+                    document.getElementById('log').innerText = "❌ 전송 오류: " + error;
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>
